@@ -1,0 +1,9 @@
+# 避免 Netlify 掃描到專案外的檔案，縮短部署時間
+node_modules
+.git
+.cursor
+*.log
+deploy.zip
+新手部署教學.md
+部署步驟.md
+images/README.md

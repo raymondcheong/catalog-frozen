@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>目錄數據監控台</title>
+  <style>
+    :root { --bg: #0f0f14; --panel: #1a1a22; --border: rgba(255,255,255,.12); --text: #e8e8ed; --muted: #888; --accent: #6ee7ff; --good: #62ffb0; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    .header { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .header h1 { margin: 0; font-size: 20px; }
+    .refresh { padding: 8px 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; color: var(--text); cursor: pointer; }
+    .refresh:hover { background: rgba(255,255,255,.06); }
+    .header-actions { display: flex; gap: 8px; }
+    .main { padding: 24px; max-width: 1200px; margin: 0 auto; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    .card h3 { margin: 0 0 8px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+    .card .value { font-size: 28px; font-weight: 700; color: var(--accent); }
+    .card .sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .section { margin-top: 24px; }
+    .section h2 { margin: 0 0 12px; font-size: 16px; }
+    .section-hint { margin: -6px 0 10px; font-size: 12px; color: var(--muted); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; }
+    .ts { font-family: monospace; font-size: 11px; color: var(--muted); }
+    .empty { color: var(--muted); padding: 24px; text-align: center; }
+    .error { color: #ff6b6b; padding: 12px; }
+    .label-like { display:block; font-size:12px; color:var(--muted); margin-bottom:6px; }
+    .dash-input {
+      padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);
+      background: #12121a; color: var(--text); font-size: 14px; outline: none;
+    }
+    .dash-input:focus { border-color: var(--accent); }
+    .bind-mode-row { display: flex; flex-direction: column; gap: 8px; margin: 14px 0 14px; }
+    .radio-line { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); cursor: pointer; }
+    .coord-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .file-open-banner {
+      margin: 0;
+      padding: 10px 24px;
+      font-size: 13px;
+      line-height: 1.5;
+      background: rgba(110,231,255,.12);
+      border-bottom: 1px solid rgba(110,231,255,.25);
+      color: var(--text);
+    }
+    .file-open-banner code { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <p id="fileOpenBanner" class="file-open-banner" hidden></p>
+  <header class="header">
+    <h1>目錄數據監控台</h1>
+    <div class="header-actions">
+      <a href="#shipping-bind" class="refresh" style="text-decoration:none;display:inline-flex;align-items:center">期貨航運綁定 ↓</a>
+      <button class="refresh" id="refresh">重新載入</button>
+      <button class="refresh" id="testApi" title="測試 API 是否正常接收事件">測試 API</button>
+      <button class="refresh" id="clearData" style="border-color:#ff6b6b;color:#ff6b6b" title="清空所有數據，從此刻重新記錄">清空數據</button>
+    </div>
+  </header>
+  <main class="main">
+    <div class="grid" id="summaryCards"></div>
+    <section class="section" id="shipping-bind">
+      <h2>期貨 · 航運綁定</h2>
+      <div class="card bind-checklist" style="max-width:620px;margin-bottom:16px;border-color:rgba(110,231,255,.35)">
+        <h3 style="margin:0 0 10px;font-size:14px;color:var(--accent)">操作檢查清單（實現：後台先綁定 → 客戶點連結 → 第三方頁帶單號）</h3>
+        <ol style="margin:0;padding-left:1.25em;font-size:13px;line-height:1.65;color:var(--text)">
+          <li>在 <code>products.js</code> 為該 SKU 設 <code>logistics: { live: true }</code>，並部署。</li>
+          <li>Netlify（或本機 <code>.env</code>）設定 <code>SHIPPING_OPS_SECRET</code>，與下方密碼一致。</li>
+          <li>無付費 API 時建議 <code>SHIPPING_PROVIDER=public</code>；有 SeaRates 金鑰則設 <code>searates</code> 並填 <code>SEARATES_API_KEY</code>。</li>
+          <li>下表選產品 → 單證模式 → <strong>必填</strong>：追蹤類型（CT/BK/BL）、追蹤單號、船公司（<strong>勿選「自動」</strong>才可把<strong>「【優先】官網…」</strong>連結置頂；達飛選 CMDU）。</li>
+          <li><strong>選填</strong>：船東顯示名、ETA、裝/卸港、地圖座標、船名航次（讓目錄頁更美，且不影響連結預填）。</li>
+          <li>點<strong>保存綁定</strong>；到產品目錄打開詳情，確認「公開查詢」連結；另開 Track-Trace 應見單號已插入。</li>
+        </ol>
+      </div>
+      <p class="section-hint">
+        <strong>方式 A · 單證綁定：</strong>填 <strong>櫃號／訂艙／提單</strong> 與<strong>船公司</strong>。若未設定 SeaRates API，目錄頁會顯示<strong>您綁定的真實單證</strong>並附加 track-trace／部分船公司官網<strong>公開查詢連結</strong>（連結網址內<strong>預先帶好單號</strong>，客戶另開分頁查即時狀態）；若已設定 <code>SEARATES_API_KEY</code> 則由後端自動查船期。<br />
+        <strong>方式 B · 手動維護：</strong>僅有船名／航次或紙面 ETA 時，直接填<strong>狀態、預計到港、目的港</strong>等；客戶打開產品即可看到，無需輸入單證。
+        （行業 API 多數無法「只輸船名航次」自動出軌跡，故以後台維護為準。）<br />
+        環境變數：<code style="color:var(--accent)">SHIPPING_OPS_SECRET</code>、
+        <code style="color:var(--accent)">SHIPPING_PROVIDER</code> 建議 <code>public</code>（預設，無金鑰亦可）或 <code>searates</code>（需 <code>SEARATES_API_KEY</code>）；<code>mock</code> 僅作內部假資料演示。手動模式不依賴 SeaRates。
+        <br /><strong>用瀏覽器網址打開卻沒表單？</strong>代表線上站尚未部署最新檔案；請改從資料夾<strong>雙擊本機</strong> <code>dashboard.html</code>，或先部署再開網址。
+      </p>
+      <div class="card" style="max-width:620px">
+        <label class="label-like" for="shipProduct">期貨產品</label>
+        <select id="shipProduct" class="dash-input" style="width:100%;margin-bottom:12px"></select>
+
+        <div class="bind-mode-row" role="radiogroup" aria-label="綁定方式">
+          <label class="radio-line"><input type="radio" name="bindMode" value="sea" checked /> 單證：櫃號 / 訂艙 / 提單 + 船公司</label>
+          <label class="radio-line"><input type="radio" name="bindMode" value="manual" /> 手動：船名 + 航次 + ETA + 目的港</label>
+        </div>
+
+        <div id="bindSeaFields">
+          <label class="label-like" for="shipSeaType">追蹤類型</label>
+          <select id="shipSeaType" class="dash-input" style="width:100%;margin-bottom:12px">
+            <option value="CT">櫃號 (CT)</option>
+            <option value="BK">訂艙號 (BK)</option>
+            <option value="BL">提單號 (BL)</option>
+          </select>
+          <label class="label-like" for="shipSeaNumber">追蹤單號</label>
+          <input id="shipSeaNumber" class="dash-input" type="text" placeholder="櫃號如 ABCU1234567；或訂艙／提單" autocomplete="off" style="width:100%;margin-bottom:12px" />
+          <label class="label-like" for="shipCarrierSelect">船公司（SCAC，影響官網直达連結）</label>
+          <select id="shipCarrierSelect" class="dash-input" style="width:100%;margin-bottom:8px">
+            <option value="auto">自動／依櫃號與聚合站（推薦無金鑰時）</option>
+            <option value="MAEU">MAEU — 馬士基 Maersk</option>
+            <option value="MSCU">MSCU — 地中海 MSC</option>
+            <option value="CMDU">CMDU — 達飛 CMA CGM</option>
+            <option value="COSU">COSU — 中遠海 COSCO</option>
+            <option value="EGLV">EGLV — 長榮 Evergreen</option>
+            <option value="HLCU">HLCU — 赫伯羅特 Hapag-Lloyd</option>
+            <option value="ONEY">ONEY — 海洋網聯 ONE</option>
+            <option value="OOLU">OOLU — 東方海外 OOCL</option>
+            <option value="YMLU">YMLU — 陽明 Yang Ming</option>
+            <option value="ZIMU">ZIMU — 以星 ZIM</option>
+            <option value="__custom">其他（手動輸入 SCAC）</option>
+          </select>
+          <input id="shipSealineCustom" class="dash-input" type="text" placeholder="自訂 SCAC，如 PILU" autocomplete="off" style="width:100%;margin-bottom:12px" hidden />
+          <label class="label-like" for="shipCarrierDisplayName">船東／船公司顯示名（可選）</label>
+          <input id="shipCarrierDisplayName" class="dash-input" type="text" placeholder="例：協議客戶慣用中文名，覆蓋下拉顯示" autocomplete="off" style="width:100%;margin-bottom:12px" />
+          <label class="label-like" for="shipSeaEtaNote">業務掌握 ETA 說明（無 API 時顯示，可選）</label>
+          <input id="shipSeaEtaNote" class="dash-input" type="text" placeholder="例：2026-04-22 預報抵港" autocomplete="off" style="width:100%;margin-bottom:12px" />
+          <label class="label-like" for="shipSeaOriginNote">裝貨港／地點（可選）</label>
+          <input id="shipSeaOriginNote" class="dash-input" type="text" autocomplete="off" style="width:100%;margin-bottom:8px" />
+          <label class="label-like" for="shipSeaDestNote">目的港／地點（可選）</label>
+          <input id="shipSeaDestNote" class="dash-input" type="text" autocomplete="off" style="width:100%;margin-bottom:12px" />
+          <label class="label-like">地圖座標（可選，與手動模式相同用途）</label>
+          <div class="coord-row">
+            <input id="shipSeaOriLat" class="dash-input" type="text" placeholder="裝貨港緯度" />
+            <input id="shipSeaOriLng" class="dash-input" type="text" placeholder="裝貨港經度" />
+          </div>
+          <div class="coord-row" style="margin-top:8px">
+            <input id="shipSeaDestLat" class="dash-input" type="text" placeholder="目的港緯度" />
+            <input id="shipSeaDestLng" class="dash-input" type="text" placeholder="目的港經度" />
+          </div>
+          <div class="coord-row" style="margin-top:8px">
+            <input id="shipSeaPosLat" class="dash-input" type="text" placeholder="船舶位置緯度" />
+            <input id="shipSeaPosLng" class="dash-input" type="text" placeholder="船舶位置經度" />
+          </div>
+          <label class="label-like" for="shipSeaVesselName">船名（可選，僅展示）</label>
+          <input id="shipSeaVesselName" class="dash-input" type="text" autocomplete="off" style="width:100%;margin-bottom:12px" />
+          <label class="label-like" for="shipSeaVoyage">航次（可選，僅展示）</label>
+          <input id="shipSeaVoyage" class="dash-input" type="text" autocomplete="off" style="width:100%;margin-bottom:12px" />
+        </div>
+
+        <div id="bindManualFields" hidden>
+          <label class="label-like" for="shipMvName">船名</label>
+          <input id="shipMvName" class="dash-input" type="text" autocomplete="off" style="width:100%;margin-bottom:12px" />
+          <label class="label-like" for="shipMvVoyage">航次（可選）</label>
+          <input id="shipMvVoyage" class="dash-input" type="text" autocomplete="off" style="width:100%;margin-bottom:12px" />
+          <label class="label-like" for="shipMvStatus">當前狀態</label>
+          <select id="shipMvStatus" class="dash-input" style="width:100%;margin-bottom:12px">
+            <option value="sailing">航行中</option>
+            <option value="berthed">靠泊中</option>
+            <option value="arrived">已到港</option>
+          </select>
+          <label class="label-like" for="shipMvEta">預計到港（ETA）說明</label>
+          <input id="shipMvEta" class="dash-input" type="text" placeholder="例：2026-04-20 預計抵葵青" autocomplete="off" style="width:100%;margin-bottom:12px" />
+          <label class="label-like" for="shipMvDest">目的港</label>
+          <input id="shipMvDest" class="dash-input" type="text" placeholder="例：香港 · 葵青貨櫃碼頭" autocomplete="off" style="width:100%;margin-bottom:12px" />
+          <label class="label-like" for="shipMvOrigin">裝貨港（可選）</label>
+          <input id="shipMvOrigin" class="dash-input" type="text" autocomplete="off" style="width:100%;margin-bottom:12px" />
+          <label class="label-like">地圖座標（可選，十進位）</label>
+          <div class="coord-row">
+            <input id="shipMvDestLat" class="dash-input" type="text" placeholder="目的港緯度" />
+            <input id="shipMvDestLng" class="dash-input" type="text" placeholder="目的港經度" />
+          </div>
+          <div class="coord-row" style="margin-top:8px">
+            <input id="shipMvPosLat" class="dash-input" type="text" placeholder="船舶位置緯度" />
+            <input id="shipMvPosLng" class="dash-input" type="text" placeholder="船舶位置經度" />
+          </div>
+        </div>
+
+        <label class="label-like" for="shipSecret">運營密碼（SHIPPING_OPS_SECRET，與 Netlify 環境變數一致；留空則使用腳本預設值）</label>
+        <input id="shipSecret" class="dash-input" type="password" placeholder="可留空，將使用腳本內 SHIPPING_OPS_SECRET" autocomplete="current-password" style="width:100%;margin-bottom:12px" />
+        <button type="button" class="refresh" id="shipBindBtn">保存綁定</button>
+        <p id="shipBindMsg" style="margin-top:12px;font-size:13px;color:var(--muted)"></p>
+      </div>
+    </section>
+    <section class="section">
+      <h2>產品點擊排行</h2>
+      <div id="productTable"></div>
+    </section>
+    <section class="section">
+      <h2>詢盤統計（按產品）</h2>
+      <div id="inquiryTable"></div>
+    </section>
+    <section class="section">
+      <h2>最近瀏覽時間點</h2>
+      <p class="section-hint">僅統計訪客開啟產品目錄頁的記錄，開啟監控台不會計入。可點「重新載入」取得最新數據。</p>
+      <div id="pageViewList"></div>
+    </section>
+    <section class="section">
+      <h2>最近產品點擊</h2>
+      <div id="productClickList"></div>
+    </section>
+    <section class="section">
+      <h2>最近詢盤</h2>
+      <div id="inquiryList"></div>
+    </section>
+  </main>
+  <script src="products.js"></script>
+  <script>
+    // 僅在「用 file:// 開本頁」時需要：改為與產品目錄同一個正式站網址（不含結尾斜線）
+    // 若用 https 開監控台（與目錄同一 Netlify 站），腳本會自動用「目前網域」讀 API，不必依賴此變數
+    window.SITE_URL = "https://incredible-froyo-c059d8.netlify.app";
+    // 清空數據密碼，須與 Netlify 環境變數 ANALYTICS_CLEAR_SECRET 一致；未設定時預設為 "clear"
+    window.ANALYTICS_CLEAR_SECRET = "clear";
+    // 須與 Netlify SHIPPING_OPS_SECRET 一致；勿使用弱密碼於正式環境
+    window.SHIPPING_OPS_SECRET = "change-me-shipping";
+    // 不再在 file:// 時自動跳轉網址：否則會載入「線上舊版」dashboard，反而看不到本機已新增的航運表單。
+    // 統計 API 仍透過下方 API 變數請求 SITE_URL；「保存綁定」亦會 POST 到 SITE_URL。
+    if (location.protocol === "file:") {
+      const b = document.getElementById("fileOpenBanner");
+      if (b) {
+        b.hidden = false;
+        b.innerHTML =
+          "<strong>目前以本機檔案開啟</strong>（網址列為 <code>file:///…</code>）。表單可填，但點「保存綁定」時，瀏覽器常<strong>無法連到</strong>遠端 API，會出現 <code>Failed to fetch</code>。" +
+          "<br /><strong>請這樣做：</strong>① 將專案部署到 Netlify 後，用 <strong>https</strong> 開 <code>" +
+          (window.SITE_URL || "").replace(/\/$/, "") +
+          "/dashboard.html</code> 再保存；或 ② 在專案目錄執行 <code>netlify dev</code>，用瀏覽器開 <code>http://localhost:8888/dashboard.html</code>（網址以終端顯示為準）。" +
+          "<br />另請確認下方 <code>SITE_URL</code> 與腳本內變數為<strong>你的正式站網址</strong>。";
+      }
+    }
+    const API =
+      location.protocol === "file:"
+        ? (window.SITE_URL || location.origin).replace(/\/$/, "") + "/api/analytics"
+        : location.origin.replace(/\/$/, "") + "/api/analytics";
+    function formatTime(iso) {
+      if (!iso) return "—";
+      const d = new Date(iso);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const h = String(d.getHours()).padStart(2, "0");
+      const min = String(d.getMinutes()).padStart(2, "0");
+      const s = String(d.getSeconds()).padStart(2, "0");
+      return `${y}-${m}-${day} ${h}:${min}:${s}`;
+    }
+    async function fetchSummary() {
+      const url = API + "/summary?t=" + Date.now();
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) throw new Error("無法取得數據");
+      return res.json();
+    }
+    function codeToName(code) {
+      const p = (window.PRODUCTS || []).find(x => x.code === code);
+      if (p) return p.name;
+      const override = (window.ANALYTICS_CODE_NAMES || {})[code];
+      return override || (code || "—");
+    }
+    function render(data) {
+      const cards = document.getElementById("summaryCards");
+      const updatedAt = new Date().toLocaleString("zh-TW");
+      cards.innerHTML = `
+        <div class="card" style="grid-column:1/-1"><h3>最後更新</h3><div class="value" style="font-size:14px">${updatedAt}</div></div>
+        <div class="card"><h3>總瀏覽次數</h3><div class="value">${data.totalPageViews}</div><div class="sub">page_view 事件數</div></div>
+        <div class="card"><h3>獨立訪客（估算）</h3><div class="value">${data.totalSessions}</div><div class="sub">依 session 估算</div></div>
+        <div class="card"><h3>平均停留時長</h3><div class="value">${data.avgDurationSec}s</div><div class="sub">秒</div></div>
+        <div class="card"><h3>產品點擊總數</h3><div class="value">${data.totalProductClicks}</div></div>
+        <div class="card"><h3>詢盤總數</h3><div class="value">${data.totalInquiries}</div><div class="sub">複製 / WhatsApp / Email</div></div>
+      `;
+
+      const pc = data.productClickCount || {};
+      const productRows = Object.entries(pc).sort((a,b)=>b[1]-a[1]).map(([code, n]) => `<tr><td>${codeToName(code)}</td><td>${n}</td></tr>`).join("");
+      document.getElementById("productTable").innerHTML = productRows.length
+        ? `<table><thead><tr><th>產品名字</th><th>點擊次數</th></tr></thead><tbody>${productRows}</tbody></table>`
+        : `<div class="empty">尚無產品點擊數據</div>`;
+
+      const ibp = data.inquiryByProduct || {};
+      const inquiryRows = Object.entries(ibp).map(([code, o]) => {
+        const copy = o.copy || 0, wa = o.whatsapp || 0, em = o.email || 0;
+        return `<tr><td>${codeToName(code)}</td><td>${copy}</td><td>${wa}</td><td>${em}</td><td>${copy+wa+em}</td></tr>`;
+      }).join("");
+      document.getElementById("inquiryTable").innerHTML = inquiryRows.length
+        ? `<table><thead><tr><th>產品名字</th><th>複製</th><th>WhatsApp</th><th>Email</th><th>合計</th></tr></thead><tbody>${inquiryRows}</tbody></table>`
+        : `<div class="empty">尚無詢盤數據</div>`;
+
+      const pv = (data.pageViewTimestamps || []).slice(0, 20);  // API 已回傳由新到舊
+      document.getElementById("pageViewList").innerHTML = pv.length
+        ? `<table><thead><tr><th>時間點</th></tr></thead><tbody>${pv.map(t=>`<tr><td class="ts">${formatTime(t)}</td></tr>`).join("")}</tbody></table>`
+        : `<div class="empty">尚無瀏覽記錄</div>`;
+
+      const pcl = (data.productClickTimestamps || []).slice(-20).reverse();
+      document.getElementById("productClickList").innerHTML = pcl.length
+        ? `<table><thead><tr><th>產品名字</th><th>時間點</th></tr></thead><tbody>${pcl.map(x=>`<tr><td>${codeToName(x.code)}</td><td class="ts">${formatTime(x.ts)}</td></tr>`).join("")}</tbody></table>`
+        : `<div class="empty">尚無產品點擊記錄</div>`;
+
+      const inq = (data.inquiryTimestamps || []).slice(-20).reverse();
+      document.getElementById("inquiryList").innerHTML = inq.length
+        ? `<table><thead><tr><th>產品名字</th><th>類型</th><th>時間點</th></tr></thead><tbody>${inq.map(x=>`<tr><td>${codeToName(x.code)}</td><td>${x.type}</td><td class="ts">${formatTime(x.ts)}</td></tr>`).join("")}</tbody></table>`
+        : `<div class="empty">尚無詢盤記錄</div>`;
+    }
+    async function load() {
+      try {
+        const data = await fetchSummary();
+        render(data);
+      } catch (e) {
+        const isFile = location.protocol === "file:";
+        const siteUrl = (window.SITE_URL || "").replace(/\/$/, "");
+        const dashUrl = siteUrl ? siteUrl + "/dashboard.html" : "#";
+        const msg = isFile
+          ? `無法連線：${e.message}<br><br><strong>請改用線上網址開啟：</strong><br><a href="${dashUrl}" target="_blank">${dashUrl || "您的站點/dashboard.html"}</a><br><br>若使用新 Netlify 帳號，請在 dashboard.html 第 63 行將 SITE_URL 改為您的新站點網址，例如：https://您的站點.netlify.app`
+          : `無法連線：${e.message}<br><br>請確認 Netlify Functions 已部署，或再執行 deploy.bat 重新部署。`;
+        document.getElementById("summaryCards").innerHTML = `<div class="error">${msg}</div>`;
+      }
+    }
+    document.getElementById("refresh").addEventListener("click", load);
+    document.getElementById("testApi").addEventListener("click", async () => {
+      const base = (location.protocol === "file:" ? (window.SITE_URL || "").replace(/\/$/, "") : location.origin);
+      const url = base + "/api/analytics/event";
+      const payload = JSON.stringify({
+        type: "page_view",
+        payload: {},
+        timestamp: new Date().toISOString(),
+        page: "/dashboard.html",
+        sessionId: "test-" + Date.now(),
+      });
+      try {
+        const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: payload });
+        const text = await res.text();
+        if (res.ok) {
+          alert("API 連線正常！(HTTP " + res.status + ")\n請點「重新載入」查看測試記錄。");
+          load();
+        } else {
+          alert("API 回傳錯誤：" + res.status + "\n" + text + "\n\n若為 404，請用 deploy.bat 部署以啟用 Functions。");
+        }
+      } catch (e) {
+        alert("無法連線：" + e.message + "\n\n請確認：\n1. 使用 deploy.bat 部署（ZIP 上傳可能未部署 Functions）\n2. Netlify 站點 Functions 已啟用");
+      }
+    });
+    document.getElementById("clearData").addEventListener("click", async () => {
+      if (!confirm("確定要清空所有數據嗎？將刪除瀏覽、點擊、詢盤等記錄，且無法復原。")) return;
+      const base = (location.protocol === "file:" ? (window.SITE_URL || "").replace(/\/$/, "") : location.origin);
+      const url = base + "/api/analytics/clear";
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ secret: window.ANALYTICS_CLEAR_SECRET || "clear" }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.ok) {
+          alert("已清空所有數據，從此刻開始重新記錄。");
+          load();
+        } else {
+          alert("清空失敗：" + (data.error || res.status));
+        }
+      } catch (e) {
+        alert("無法連線：" + e.message);
+      }
+    });
+    function fillShipProductSelect() {
+      const sel = document.getElementById("shipProduct");
+      const products = window.PRODUCTS || [];
+      const withLive = products.filter(p => p.logistics && p.logistics.live);
+      const list = withLive.length ? withLive : products;
+      sel.innerHTML = list.map(p =>
+        `<option value="${p.code}">${p.code} — ${p.name}</option>`
+      ).join("");
+    }
+    fillShipProductSelect();
+    function syncSealineCustomVisibility() {
+      const sel = document.getElementById("shipCarrierSelect");
+      const custom = document.getElementById("shipSealineCustom");
+      if (!sel || !custom) return;
+      const show = sel.value === "__custom";
+      custom.hidden = !show;
+      if (!show) custom.value = "";
+    }
+    document.getElementById("shipCarrierSelect")?.addEventListener("change", syncSealineCustomVisibility);
+    syncSealineCustomVisibility();
+    for (const r of document.querySelectorAll('input[name="bindMode"]')) {
+      r.addEventListener("change", () => {
+        const manual = document.querySelector('input[name="bindMode"]:checked')?.value === "manual";
+        document.getElementById("bindManualFields").hidden = !manual;
+        document.getElementById("bindSeaFields").hidden = manual;
+      });
+    }
+    document.getElementById("shipBindBtn").addEventListener("click", async () => {
+      const base = (location.protocol === "file:" ? (window.SITE_URL || "").replace(/\/$/, "") : location.origin);
+      const url = base + "/api/shipping/bind";
+      const productCode = document.getElementById("shipProduct").value.trim();
+      const secret = document.getElementById("shipSecret").value;
+      const msg = document.getElementById("shipBindMsg");
+      const manual = document.querySelector('input[name="bindMode"]:checked')?.value === "manual";
+      msg.textContent = "";
+      if (!productCode) {
+        msg.textContent = "請選擇產品。";
+        msg.style.color = "#ff6b6b";
+        return;
+      }
+      let payload = { secret: secret || window.SHIPPING_OPS_SECRET || "", productCode };
+      if (manual) {
+        Object.assign(payload, {
+          bindingMode: "manual",
+          vesselName: document.getElementById("shipMvName").value.trim(),
+          voyage: document.getElementById("shipMvVoyage").value.trim(),
+          status: document.getElementById("shipMvStatus").value,
+          etaDisplay: document.getElementById("shipMvEta").value.trim(),
+          destination: document.getElementById("shipMvDest").value.trim(),
+          origin: document.getElementById("shipMvOrigin").value.trim(),
+          destinationLat: document.getElementById("shipMvDestLat").value.trim(),
+          destinationLng: document.getElementById("shipMvDestLng").value.trim(),
+          positionLat: document.getElementById("shipMvPosLat").value.trim(),
+          positionLng: document.getElementById("shipMvPosLng").value.trim(),
+        });
+      } else {
+        const sel = document.getElementById("shipCarrierSelect").value;
+        const sealine =
+          sel === "__custom"
+            ? document.getElementById("shipSealineCustom").value.trim()
+            : sel;
+        Object.assign(payload, {
+          bindingMode: "sea",
+          seaType: document.getElementById("shipSeaType").value,
+          seaNumber: document.getElementById("shipSeaNumber").value.trim(),
+          sealine: sealine || "auto",
+          carrierDisplayName: document.getElementById("shipCarrierDisplayName").value.trim(),
+          etaNote: document.getElementById("shipSeaEtaNote").value.trim(),
+          originNote: document.getElementById("shipSeaOriginNote").value.trim(),
+          destinationNote: document.getElementById("shipSeaDestNote").value.trim(),
+          originLat: document.getElementById("shipSeaOriLat").value.trim(),
+          originLng: document.getElementById("shipSeaOriLng").value.trim(),
+          destinationLat: document.getElementById("shipSeaDestLat").value.trim(),
+          destinationLng: document.getElementById("shipSeaDestLng").value.trim(),
+          positionLat: document.getElementById("shipSeaPosLat").value.trim(),
+          positionLng: document.getElementById("shipSeaPosLng").value.trim(),
+          vesselName: document.getElementById("shipSeaVesselName").value.trim(),
+          voyage: document.getElementById("shipSeaVoyage").value.trim(),
+        });
+        if (!payload.seaNumber) {
+          msg.textContent = "單證模式請填寫追蹤單號。";
+          msg.style.color = "#ff6b6b";
+          return;
+        }
+        if (sel === "__custom" && !String(payload.sealine || "").trim()) {
+          msg.textContent = "選擇「其他」時請填寫船公司 SCAC（如 PILU）。";
+          msg.style.color = "#ff6b6b";
+          return;
+        }
+      }
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.ok) {
+          msg.style.color = "var(--good)";
+          msg.textContent = manual
+            ? "已保存手動綁定：" + productCode + "（" + (data.summary || "") + "）"
+            : "已保存：" + productCode + " ↔ " + (data.seaType || "") + " " + (data.seaNumber || "") + "";
+          if (!manual) document.getElementById("shipSeaNumber").value = "";
+        } else {
+          msg.style.color = "#ff6b6b";
+          msg.textContent = (data.error || "失敗") + (data.message ? " — " + data.message : "") + " (HTTP " + res.status + ")";
+        }
+      } catch (errBind) {
+        msg.style.color = "#ff6b6b";
+        let hint = "";
+        if (location.protocol === "file:") {
+          hint =
+            " 你正用本機 file 開啟頁面，跨網域請求常被瀏覽器擋下。請改用 https 開監控台，或執行 netlify dev 後用 localhost 開啟。";
+        } else if (String(errBind.message || "").includes("fetch")) {
+          hint = " 請確認已部署 Functions、網址正確，且 Netlify 站可連線。";
+        }
+        msg.textContent = "無法連線：" + errBind.message + hint;
+      }
+    });
+    load();
+    setInterval(load, 15000);  // 每 15 秒自動更新
+  </script>
+</body>
+</html>

@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>凍品盲盒 | 限時活動</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .blindbox-wrap { max-width: 520px; margin: 0 auto; padding: 24px 18px 48px; min-height: 70vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .blindbox-card { width: 100%; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px 22px; box-shadow: var(--shadow); text-align: center; }
+    .blindbox-title { margin: 0 0 8px; font-family: var(--font-serif); font-size: 26px; }
+    .blindbox-sub { margin: 0 0 20px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+    .blindbox-box { width: 180px; height: 180px; margin: 16px auto 24px; border-radius: 24px; background: linear-gradient(145deg, rgba(110,231,255,.25), rgba(255,79,216,.2)); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 64px; transition: transform .35s ease, box-shadow .35s ease; cursor: default; user-select: none; }
+    .blindbox-box.is-clickable { cursor: pointer; }
+    .blindbox-box.is-clickable:focus { outline: 2px solid var(--accent-2); outline-offset: 4px; }
+    .demo-uid-row { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; }
+    .demo-uid-row input { flex: 1; min-width: 160px; max-width: 280px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,.25); color: var(--text); font-size: 14px; }
+    .blindbox-box.shake { animation: bb-shake .6s ease; }
+    .blindbox-box.open { transform: scale(1.05); box-shadow: 0 0 40px rgba(110,231,255,.35); }
+    @keyframes bb-shake { 0%,100% { transform: rotate(0); } 20% { transform: rotate(-6deg); } 40% { transform: rotate(6deg); } 60% { transform: rotate(-4deg); } 80% { transform: rotate(4deg); } }
+    .btn-blind { font-size: 16px; padding: 14px 28px; }
+    .btn-blind:disabled { opacity: .45; cursor: not-allowed; }
+    .result-name { font-size: 22px; font-weight: 700; margin: 12px 0 8px; color: var(--accent-2); }
+    .result-code { font-family: ui-monospace, monospace; color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+    .banner-warn { background: rgba(255,107,107,.15); border: 1px solid rgba(255,107,107,.4); color: #ffb4b4; padding: 10px 12px; border-radius: var(--radius-2); font-size: 13px; margin-bottom: 16px; text-align: left; }
+    .banner-info { background: rgba(110,231,255,.1); border: 1px solid rgba(110,231,255,.25); color: var(--muted); padding: 10px 12px; border-radius: var(--radius-2); font-size: 13px; margin-bottom: 16px; text-align: left; }
+    .state-msg { color: var(--muted); font-size: 14px; min-height: 1.5em; margin-top: 12px; }
+    .links-row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <!--
+    ═══════════════════════════════════════════════════════════════════
+    【APP 整合】用戶識別（每裝置／登入帳號唯一）
+    以下擇一即可，優先順序由上到下：
+      1. 網址參數：?uid=xxx 或 ?userId=xxx（建議 APP 內 WebView 載入時帶入）
+      2. 全域變數：在載入本頁前設定 window.APP_USER_ID = "裝置或帳號 ID"
+    ═══════════════════════════════════════════════════════════════════
+  -->
+  <header class="site-header">
+    <div class="header-inner" style="justify-content:center">
+      <div class="brand-block" style="text-align:center">
+        <h1 class="brand" style="font-size:22px">凍品盲盒</h1>
+        <p class="tagline">限時活動 · 每位用戶每場活動僅限一次</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="blindbox-wrap">
+    <div class="blindbox-card" id="panel">
+      <h2 class="blindbox-title" id="campaignTitle">盲盒活動</h2>
+      <p class="blindbox-sub" id="campaignHint">載入中…</p>
+
+      <div id="warnBanner" class="banner-warn" hidden></div>
+      <div id="infoBanner" class="banner-info" hidden></div>
+
+      <div class="blindbox-box" id="boxIcon" role="presentation" tabindex="-1">🎁</div>
+
+      <div id="blockNoUser" hidden>
+        <p class="blindbox-sub">請從公司 APP 開啟本頁，或由 APP 在網址後加上用戶／裝置識別參數。</p>
+        <p class="result-code">範例：<code style="color:var(--accent-2)">blindbox.html?uid=裝置唯一ID</code></p>
+        <p class="blindbox-sub" style="margin-top:12px">本機預覽：輸入測試用 ID 後按「開始」，或點下方一鍵產生。</p>
+        <div class="demo-uid-row">
+          <input type="text" id="demoUidInput" placeholder="測試用戶 ID（至少 2 個字）" maxlength="128" autocomplete="off" />
+          <button type="button" class="btn-primary" id="btnApplyDemoUid">開始盲盒</button>
+        </div>
+        <button type="button" class="btn-ghost" id="btnQuickDemoUid" style="margin-top:10px">一鍵使用測試 ID（demo）</button>
+      </div>
+
+      <div id="blockReady" hidden>
+        <button type="button" class="btn-primary btn-blind" id="btnDraw">開盲盒</button>
+        <p class="state-msg" id="stateReady"></p>
+      </div>
+
+      <div id="blockResult" hidden>
+        <p class="result-name" id="resultName">—</p>
+        <p class="result-code" id="resultCode"></p>
+        <div class="links-row">
+          <a class="btn-primary" id="linkCatalog" href="#">查看產品詳情</a>
+          <a class="btn-ghost" href="index.html">返回目錄</a>
+        </div>
+      </div>
+
+      <div id="blockClosed" hidden>
+        <p class="blindbox-sub" id="closedMsg"></p>
+        <div class="links-row">
+          <a class="btn-ghost" href="index.html">返回目錄</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    /**
+     * 【與後端對齊】活動 ID，須與 netlify/functions/blindbox-config.mjs 內的 CAMPAIGNS 鍵名一致
+     */
+    var BLINDBOX_CAMPAIGN_ID = "spring2025";
+
+    /** 與 blindbox-config.mjs 獎池一致，本機隨機僅從下列編號抽取 */
+    var BLINDBOX_PRIZE_CODES = ["CN-PK-001", "CN-PK-002"];
+
+    /**
+     * 本機開發：若未部署 Functions，設為 true 則用 localStorage 模擬「僅一次」（僅供本機測試，無法防作弊）
+     */
+    var BLINDBOX_DEV_LOCAL_FALLBACK = false;
+  </script>
+  <script src="products.js"></script>
+  <script>
+    (function () {
+      var API = "";
+      try {
+        API = (location.protocol === "file:" ? "" : location.origin.replace(/\/$/, "")) + "/api/blindbox";
+      } catch (e) {
+        API = "/api/blindbox";
+      }
+
+      function getQueryId() {
+        var q = new URLSearchParams(location.search);
+        return (q.get("uid") || q.get("userId") || "").trim();
+      }
+
+      function getUserId() {
+        var fromUrl = getQueryId();
+        if (fromUrl) return fromUrl;
+        if (typeof window.APP_USER_ID === "string" && window.APP_USER_ID.trim().length >= 2)
+          return window.APP_USER_ID.trim();
+        return "";
+      }
+
+      function productName(code) {
+        var list = window.PRODUCTS || [];
+        var p = list.find(function (x) { return x.code === code; });
+        return p ? p.name : code;
+      }
+
+      function show(el, on) {
+        if (!el) return;
+        el.hidden = !on;
+      }
+
+      function setWarn(text) {
+        var w = document.getElementById("warnBanner");
+        if (!text) {
+          show(w, false);
+          return;
+        }
+        w.textContent = text;
+        show(w, true);
+      }
+
+      function setInfo(text) {
+        var i = document.getElementById("infoBanner");
+        if (!text) {
+          show(i, false);
+          return;
+        }
+        i.textContent = text;
+        show(i, true);
+      }
+
+      var localKey = function (uid) {
+        return "blindbox_local_" + BLINDBOX_CAMPAIGN_ID + "_" + uid;
+      };
+
+      function localGet(uid) {
+        try {
+          var raw = localStorage.getItem(localKey(uid));
+          return raw ? JSON.parse(raw) : null;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function localSet(uid, productCode) {
+        try {
+          localStorage.setItem(
+            localKey(uid),
+            JSON.stringify({
+              productCode: productCode,
+              participatedAt: new Date().toISOString(),
+            })
+          );
+        } catch (e) {}
+      }
+
+      function pickLocalPrize() {
+        var codes = window.BLINDBOX_PRIZE_CODES || [];
+        if (!codes.length) return "CN-PK-001";
+        var i = Math.floor(Math.random() * codes.length);
+        return codes[i];
+      }
+
+      function showResult(code) {
+        document.getElementById("resultName").textContent = productName(code);
+        document.getElementById("resultCode").textContent = "產品編號：" + code;
+        var link = document.getElementById("linkCatalog");
+        link.href = "index.html?code=" + encodeURIComponent(code);
+        show(document.getElementById("blockReady"), false);
+        show(document.getElementById("blockResult"), true);
+        document.getElementById("boxIcon").classList.add("open");
+        updateBoxInteractive();
+      }
+
+      function updateBoxInteractive() {
+        var box = document.getElementById("boxIcon");
+        var ready = document.getElementById("blockReady");
+        var btn = document.getElementById("btnDraw");
+        var clickable = ready && !ready.hidden && btn && !btn.disabled;
+        box.classList.toggle("is-clickable", clickable);
+        box.setAttribute("tabindex", clickable ? "0" : "-1");
+        if (clickable) {
+          box.setAttribute("role", "button");
+          box.setAttribute("aria-label", "點擊開盲盒");
+        } else {
+          box.setAttribute("role", "presentation");
+          box.removeAttribute("aria-label");
+        }
+      }
+
+      function showClosed(msg) {
+        document.getElementById("closedMsg").textContent = msg || "活動未開始或已結束。";
+        show(document.getElementById("blockReady"), false);
+        show(document.getElementById("blockNoUser"), false);
+        show(document.getElementById("blockClosed"), true);
+        updateBoxInteractive();
+      }
+
+      async function fetchStatus(uid) {
+        var url = API + "?campaignId=" + encodeURIComponent(BLINDBOX_CAMPAIGN_ID) + "&userId=" + encodeURIComponent(uid);
+        var res = await fetch(url, { cache: "no-store" });
+        var data = await res.json().catch(function () { return {}; });
+        return { ok: res.ok, data: data };
+      }
+
+      async function postDraw(uid) {
+        var res = await fetch(API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            campaignId: BLINDBOX_CAMPAIGN_ID,
+            userId: uid,
+          }),
+        });
+        var data = await res.json().catch(function () { return {}; });
+        return { ok: res.ok, data: data };
+      }
+
+      function hideAllBlocks() {
+        show(document.getElementById("blockNoUser"), false);
+        show(document.getElementById("blockReady"), false);
+        show(document.getElementById("blockResult"), false);
+        show(document.getElementById("blockClosed"), false);
+      }
+
+      async function init() {
+        var uid = getUserId();
+        document.getElementById("campaignTitle").textContent = "盲盒活動";
+        document.getElementById("campaignHint").textContent = "每位用戶於本活動期間僅可開啟一次。";
+        setWarn("");
+        setInfo("");
+
+        if (!uid) {
+          hideAllBlocks();
+          show(document.getElementById("blockNoUser"), true);
+          return;
+        }
+
+        setInfo("已識別用戶：" + uid.slice(0, 12) + (uid.length > 12 ? "…" : ""));
+
+        var allowLocal =
+          BLINDBOX_DEV_LOCAL_FALLBACK ||
+          location.hostname === "localhost" ||
+          location.hostname === "127.0.0.1" ||
+          location.protocol === "file:";
+
+        try {
+          var st = await fetchStatus(uid);
+          var d = st.data || {};
+
+          if (d.error === "not_in_window") {
+            showClosed(d.message || "活動未開始或已結束。");
+            return;
+          }
+
+          if (!st.ok && d.error) {
+            document.getElementById("campaignHint").textContent = d.error || "無法載入活動。";
+            setWarn(typeof d.error === "string" ? d.error : "請檢查活動設定或稍後再試。");
+            return;
+          }
+
+          if (d.ok) {
+            if (d.participated && d.productCode) {
+              hideAllBlocks();
+              showResult(d.productCode);
+              return;
+            }
+            hideAllBlocks();
+            show(document.getElementById("blockReady"), true);
+            document.getElementById("stateReady").textContent = "";
+            document.getElementById("btnDraw").disabled = false;
+            updateBoxInteractive();
+            return;
+          }
+
+          throw new Error(d.error || "status_fail");
+        } catch (err) {
+          if (allowLocal) {
+            var prev = localGet(uid);
+            if (prev && prev.productCode) {
+              hideAllBlocks();
+              showResult(prev.productCode);
+              setWarn("本機模式：使用瀏覽器儲存記錄，正式環境請部署 /api/blindbox。");
+              return;
+            }
+            hideAllBlocks();
+            show(document.getElementById("blockReady"), true);
+            document.getElementById("stateReady").textContent = "";
+            document.getElementById("btnDraw").disabled = false;
+            setWarn("無法連線後端，已啟用本機測試模式（僅本機有效，無法防作弊）。");
+            window.__blindboxUseLocal = true;
+            updateBoxInteractive();
+            return;
+          }
+          document.getElementById("campaignHint").textContent = "無法載入活動狀態，請稍後再試。";
+          setWarn(String(err.message || err));
+        }
+      }
+
+      async function runDraw() {
+        var uid = getUserId();
+        if (!uid) return;
+
+        var btn = document.getElementById("btnDraw");
+        var box = document.getElementById("boxIcon");
+        btn.disabled = true;
+        updateBoxInteractive();
+        box.classList.add("shake");
+        setTimeout(function () { box.classList.remove("shake"); }, 600);
+
+        try {
+          if (window.__blindboxUseLocal) {
+            var existing = localGet(uid);
+            if (existing && existing.productCode) {
+              showResult(existing.productCode);
+              return;
+            }
+            var code = pickLocalPrize();
+            localSet(uid, code);
+            showResult(code);
+            return;
+          }
+
+          var r = await postDraw(uid);
+          var d = r.data;
+
+          if (d && d.error === "not_in_window") {
+            showClosed(d.message || "活動未開始或已結束。");
+            return;
+          }
+
+          if (r.ok && d && d.ok && d.productCode) {
+            showResult(d.productCode);
+            return;
+          }
+
+          throw new Error(d.error || "draw_fail");
+        } catch (e) {
+          document.getElementById("stateReady").textContent = "開啟失敗，請稍後重試。";
+          btn.disabled = false;
+          updateBoxInteractive();
+        }
+      }
+
+      document.getElementById("btnDraw").addEventListener("click", runDraw);
+
+      var boxIconEl = document.getElementById("boxIcon");
+      boxIconEl.addEventListener("click", function () {
+        var ready = document.getElementById("blockReady");
+        var btn = document.getElementById("btnDraw");
+        if (!ready.hidden && btn && !btn.disabled) runDraw();
+      });
+      boxIconEl.addEventListener("keydown", function (e) {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        var ready = document.getElementById("blockReady");
+        var btn = document.getElementById("btnDraw");
+        if (!ready.hidden && btn && !btn.disabled) runDraw();
+      });
+
+      function goWithDemoUid(raw) {
+        var v = String(raw || "").trim();
+        if (v.length < 2) {
+          alert("請輸入至少 2 個字元的測試用戶 ID");
+          return;
+        }
+        var u = new URL(location.href);
+        u.searchParams.set("uid", v);
+        location.href = u.toString();
+      }
+
+      document.getElementById("btnApplyDemoUid").addEventListener("click", function () {
+        goWithDemoUid(document.getElementById("demoUidInput").value);
+      });
+      document.getElementById("btnQuickDemoUid").addEventListener("click", function () {
+        goWithDemoUid("demo-" + Date.now());
+      });
+      document.getElementById("demoUidInput").addEventListener("keydown", function (e) {
+        if (e.key === "Enter") goWithDemoUid(e.target.value);
+      });
+
+      document.addEventListener("DOMContentLoaded", init);
+    })();
+  </script>
+</body>
+</html>

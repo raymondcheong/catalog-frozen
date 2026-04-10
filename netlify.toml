@@ -1,0 +1,46 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+# 本機 netlify dev 預設埠（與 npm run dev 一致）
+[dev]
+  # 本機請優先用 npm run dev（scripts/dev.cjs 會自動挑可用埠）。此處僅作 Netlify 雲端參考。
+  port = 8892
+  staticServerPort = 14001
+
+# 將 /api/analytics/* 導向 Netlify Functions
+[[redirects]]
+  from = "/api/analytics/event"
+  to = "/.netlify/functions/analytics-event"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/analytics/summary"
+  to = "/.netlify/functions/analytics-summary"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/analytics/clear"
+  to = "/.netlify/functions/analytics-clear"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/blindbox"
+  to = "/.netlify/functions/blindbox"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/shipping/bind"
+  to = "/.netlify/functions/shipping-bind"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/shipping/track"
+  to = "/.netlify/functions/shipping-track"
+  status = 200
+  force = true

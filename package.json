@@ -1,0 +1,17 @@
+{
+  "name": "catalog-frozen",
+  "version": "1.0.0",
+  "description": "凍肉水產產品目錄與數據監控",
+  "type": "module",
+  "scripts": {
+    "build": "echo Build complete",
+    "deploy": "netlify deploy --prod",
+    "dev": "node scripts/dev.cjs"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^5.0.0"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.0.0"
+  }
+}

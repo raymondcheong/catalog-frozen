@@ -1,0 +1,4 @@
+# API 導向 Functions（備援，netlify.toml 若未生效時使用）
+/api/analytics/event    /.netlify/functions/analytics-event    200
+/api/analytics/summary  /.netlify/functions/analytics-summary  200
+/api/analytics/clear    /.netlify/functions/analytics-clear    200

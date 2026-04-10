@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>產品目錄 | 凍肉水產</title>
+  <meta name="description" content="凍肉水產線上詢盤產品目錄：中國豬肉、中國雞類等產品款式瀏覽與一鍵詢盤。" />
+  <link rel="stylesheet" href="style.css" />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="brand-block">
+        <h1 class="brand" id="storeName">凍肉水產產品目錄</h1>
+        <p class="tagline" id="storeTagline">冷凍肉品 · 水產批發 · 線上詢盤專用</p>
+      </div>
+      <div class="header-actions">
+        <a href="#inquiry" class="btn-inquiry">詢盤 / 聯絡</a>
+        <button type="button" class="btn-ghost" id="copyCatalogLink">複製目錄連結</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="home-carousel" aria-label="期貨報價海報">
+    <div class="carousel-slide carousel-poster">
+      <div class="carousel-poster-bg" style="background-image: url('assets/futures-price-poster-no-dots.png');"></div>
+      <img class="carousel-logo" src="assets/ng-fung-logo.png" alt="五豐" />
+    </div>
+  </section>
+
+  <main class="catalog-main">
+    <aside class="filters">
+      <div class="filter-head">
+        <h2>篩選商品</h2>
+        <button type="button" class="btn-ghost btn-small" id="resetFilters">重設</button>
+      </div>
+
+      <div class="search-box">
+        <label class="label" for="searchInput">搜尋</label>
+        <input id="searchInput" class="input" type="search" placeholder="輸入產品編號 / 品名 / 部位 / 產地" autocomplete="off" />
+        <p class="help">支援產品編號、品名、部位、產地、標籤等關鍵字</p>
+      </div>
+
+      <div class="filter-section">
+        <h3>品類</h3>
+        <div class="filter-group" id="categoryGroup">
+          <button type="button" class="filter-btn active" data-category="all">全部產品</button>
+          <button type="button" class="filter-btn" data-category="中國豬肉">中國豬肉</button>
+          <button type="button" class="filter-btn" data-category="中國雞類">中國雞類</button>
+        </div>
+        <p class="filter-hint">點選品類可篩選商品</p>
+      </div>
+
+      <div class="filter-section">
+        <h3>標籤</h3>
+        <div class="chip-row" id="tagChips">
+          <!-- 由 JS 動態填入 -->
+        </div>
+      </div>
+
+      <div class="filter-section">
+        <h3>狀態</h3>
+        <label class="toggle">
+          <input type="checkbox" id="toggleShowOos" />
+          <span class="toggle-ui" aria-hidden="true"></span>
+          <span class="toggle-text">顯示已售罄產品</span>
+        </label>
+      </div>
+    </aside>
+
+    <section class="catalog-content">
+      <div class="catalog-meta">
+        <div class="meta-left">
+          <span id="productCount" class="count">共 0 件商品</span>
+          <span id="activeFilterSummary" class="summary"></span>
+        </div>
+        <div class="meta-right">
+          <label class="label inline" for="sortSelect">排序</label>
+          <select id="sortSelect" class="select" aria-label="排序">
+            <option value="newest">最新上架</option>
+            <option value="popular">熱門</option>
+            <option value="codeAsc">款號 A→Z</option>
+            <option value="codeDesc">款號 Z→A</option>
+          </select>
+        </div>
+      </div>
+      <div id="productGrid" class="product-grid">
+        <!-- 由 JS 動態填入 -->
+      </div>
+      <div id="emptyState" class="empty-state" hidden>
+        <h3>找不到符合條件的款式</h3>
+        <p>你可以嘗試清除篩選、縮短關鍵字，或改用款號搜尋。</p>
+        <button type="button" class="btn-primary" id="clearAndShowAll">清除篩選</button>
+      </div>
+    </section>
+  </main>
+
+  <section class="inquiry-banner">
+    <div class="inquiry-inner">
+      <div class="inquiry-text">
+        <h2>需要報價/現貨？</h2>
+        <p>點開款式詳情後可點擊 WhatsApp 詢盤，快速發給我們。</p>
+      </div>
+      <a href="#inquiry" class="btn-primary">前往聯絡方式</a>
+    </div>
+  </section>
+
+  <footer class="site-footer" id="inquiry">
+    <div class="footer-inner">
+      <h2>詢盤與聯絡</h2>
+      <p>如需報價、尺碼或批發合作，歡迎透過以下方式聯絡我們。</p>
+      <ul class="contact-list">
+        <li><strong>WhatsApp：</strong><span class="contact-value" id="contactWhatsapp">（待填）</span></li>
+      </ul>
+      <p class="copyright" id="copyrightText">© 女裝店 · 產品目錄僅供詢盤客戶閱覽</p>
+    </div>
+  </footer>
+
+  <dialog class="modal" id="productModal" aria-label="產品詳情">
+    <div class="modal-body">
+      <button type="button" class="modal-close" id="closeModal" aria-label="關閉">×</button>
+
+      <div class="modal-grid">
+        <div class="modal-gallery">
+          <div class="gallery-main">
+            <img id="modalImage" alt="" />
+          </div>
+          <div class="gallery-thumbs" id="modalThumbs" aria-label="圖片縮圖"></div>
+        </div>
+
+        <div class="modal-info">
+          <div class="modal-title-row">
+            <div>
+              <h2 class="modal-title" id="modalName">—</h2>
+              <p class="modal-sub" id="modalSub">—</p>
+            </div>
+            <span class="badge" id="modalBadge" hidden></span>
+          </div>
+
+          <div class="modal-kv">
+            <div class="kv"><span class="k">產品名字</span><span class="v" id="modalNameKv">—</span></div>
+            <div class="kv"><span class="k">品類</span><span class="v" id="modalCategory">—</span></div>
+            <div class="kv kv-full"><span class="k">規格</span><span class="v" id="modalSpec">—</span></div>
+            <div class="kv kv-full"><span class="k">價格</span><span class="v" id="modalPrice">—</span></div>
+            <div class="kv"><span class="k">交期</span><span class="v" id="modalLead">—</span></div>
+            <div class="kv"><span class="k">工廠</span><span class="v" id="modalFactory">—</span></div>
+            <div class="kv"><span class="k">包裝</span><span class="v" id="modalPackaging">—</span></div>
+          </div>
+
+          <div class="modal-tags" id="modalTags"></div>
+          <p class="modal-desc" id="modalDesc"></p>
+          <div class="modal-remark" id="modalRemark"></div>
+
+          <div class="modal-actions">
+            <a class="btn-primary" id="openWhatsapp" href="#" target="_blank" rel="noreferrer" hidden>WhatsApp 詢盤</a>
+          </div>
+
+          <div class="modal-footnote" id="modalNote"></div>
+        </div>
+      </div>
+
+      <section class="logistics-wrap" id="modalLogisticsWrap" hidden aria-label="期貨物流可視化">
+        <div class="logistics-head">
+          <h3 class="logistics-title" id="logisticsTitle">期貨物流</h3>
+          <p class="logistics-diff" id="logisticsDiff">
+            與一般船期網站不同：下列資訊已與本產品批次綁定，您無需輸入櫃號、提單號或船名航次即可查看。
+          </p>
+          <p class="logistics-loading" id="logisticsLoading" hidden>正在向船公司數據源載入航運資訊…</p>
+        </div>
+        <div class="logistics-layout">
+          <div id="logisticsMap" class="logistics-map" role="img" aria-label="船舶概略位置地圖"></div>
+          <div class="logistics-side">
+            <div class="logistics-status-row">
+              <span class="logistics-status-label" id="logisticsStatusLabel">狀態</span>
+              <span class="logistics-status-pill" id="logisticsStatusPill">—</span>
+            </div>
+            <div id="logisticsLinks" class="logistics-links logistics-links--top" hidden></div>
+            <dl class="logistics-dl">
+              <div class="logistics-dl-row logistics-dl-row--full"><dt>綁定單證</dt><dd id="logisticsRef">—</dd></div>
+              <div class="logistics-dl-row"><dt>預計到港（ETA）</dt><dd id="logisticsEta">—</dd></div>
+              <div class="logistics-dl-row"><dt>目的港</dt><dd id="logisticsDest">—</dd></div>
+              <div class="logistics-dl-row"><dt>裝貨港</dt><dd id="logisticsOrigin">—</dd></div>
+              <div class="logistics-dl-row logistics-dl-row--full"><dt>船隻說明</dt><dd id="logisticsVessel">—</dd></div>
+              <div class="logistics-dl-row logistics-dl-row--full"><dt>位置更新</dt><dd id="logisticsUpdated">—</dd></div>
+            </dl>
+            <p class="logistics-footnote" id="logisticsDataNote"></p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </dialog>
+
+  <script>
+    // 空字串 = 與目錄同一網域（正式環境請保持如此）
+    // 本機請用「netlify dev」開啟（例如 http://localhost:8888），勿用 file://，以便請求本機 Functions
+    window.ANALYTICS_API_URL =
+      location.hostname === "localhost" || location.hostname === "127.0.0.1"
+        ? ""
+        : "";
+    window.SHIPPING_TRACK_API_URL =
+      location.hostname === "localhost" || location.hostname === "127.0.0.1"
+        ? ""
+        : "";
+  </script>
+  <script src="analytics-tracker.js"></script>
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script src="products.js"></script>
+  <script src="catalog.js"></script>
+</body>
+</html>
