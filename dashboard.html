@@ -172,8 +172,11 @@
           </div>
         </div>
 
-        <label class="label-like" for="shipSecret">運營密碼（SHIPPING_OPS_SECRET，與 Netlify 環境變數一致；留空則使用腳本預設值）</label>
-        <input id="shipSecret" class="dash-input" type="password" placeholder="可留空，將使用腳本內 SHIPPING_OPS_SECRET" autocomplete="current-password" style="width:100%;margin-bottom:12px" />
+        <label class="label-like" for="shipSecret">運營密碼（SHIPPING_OPS_SECRET）</label>
+        <p class="section-hint" style="margin:-4px 0 10px;font-size:12px">
+          須與 Netlify 環境變數 <code>SHIPPING_OPS_SECRET</code> <strong>完全相同</strong>（本機可另在專案 <code>.env</code> 設定供 Function 讀取）。密鑰<strong>只可</strong>寫在 Netlify／本機環境，勿提交到 Git。
+        </p>
+        <input id="shipSecret" class="dash-input" type="password" placeholder="必填，與 Netlify SHIPPING_OPS_SECRET 一致" autocomplete="current-password" style="width:100%;margin-bottom:12px" />
         <button type="button" class="refresh" id="shipBindBtn">保存綁定</button>
         <p id="shipBindMsg" style="margin-top:12px;font-size:13px;color:var(--muted)"></p>
       </div>
@@ -207,8 +210,7 @@
     window.SITE_URL = "https://incredible-froyo-c059d8.netlify.app";
     // 清空數據密碼，須與 Netlify 環境變數 ANALYTICS_CLEAR_SECRET 一致；未設定時預設為 "clear"
     window.ANALYTICS_CLEAR_SECRET = "clear";
-    // 須與 Netlify SHIPPING_OPS_SECRET 一致；勿使用弱密碼於正式環境
-    window.SHIPPING_OPS_SECRET = "change-me-shipping";
+    // 運營密碼請只在表單「運營密碼」輸入，勿寫進 Git（Netlify secrets scanner 會阻擋部署）。
     // 不再在 file:// 時自動跳轉網址：否則會載入「線上舊版」dashboard，反而看不到本機已新增的航運表單。
     // 統計 API 仍透過下方 API 變數請求 SITE_URL；「保存綁定」亦會 POST 到 SITE_URL。
     if (location.protocol === "file:") {
@@ -382,7 +384,7 @@
       const base = (location.protocol === "file:" ? (window.SITE_URL || "").replace(/\/$/, "") : location.origin);
       const url = base + "/api/shipping/bind";
       const productCode = document.getElementById("shipProduct").value.trim();
-      const secret = document.getElementById("shipSecret").value;
+      const secret = document.getElementById("shipSecret").value.trim();
       const msg = document.getElementById("shipBindMsg");
       const manual = document.querySelector('input[name="bindMode"]:checked')?.value === "manual";
       msg.textContent = "";
@@ -391,7 +393,12 @@
         msg.style.color = "#ff6b6b";
         return;
       }
-      let payload = { secret: secret || window.SHIPPING_OPS_SECRET || "", productCode };
+      if (!secret) {
+        msg.textContent = "請填寫運營密碼（須與 Netlify 環境變數 SHIPPING_OPS_SECRET 一致）。";
+        msg.style.color = "#ff6b6b";
+        return;
+      }
+      let payload = { secret, productCode };
       if (manual) {
         Object.assign(payload, {
           bindingMode: "manual",
@@ -456,7 +463,12 @@
           if (!manual) document.getElementById("shipSeaNumber").value = "";
         } else {
           msg.style.color = "#ff6b6b";
-          msg.textContent = (data.error || "失敗") + (data.message ? " — " + data.message : "") + " (HTTP " + res.status + ")";
+          let extra = "";
+          if (data.error === "server_not_configured") {
+            extra =
+              " — 請到 Netlify：Site configuration → Environment variables，確認已新增 SHIPPING_OPS_SECRET（Functions 作用域）並重新部署。本機請在專案 .env 設定同名變數。";
+          }
+          msg.textContent = (data.error || "失敗") + (data.message ? " — " + data.message : "") + " (HTTP " + res.status + ")" + extra;
         }
       } catch (errBind) {
         msg.style.color = "#ff6b6b";

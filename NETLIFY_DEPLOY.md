@@ -25,6 +25,8 @@
 3. 開啟 `/dashboard.html` → 期貨航運綁定 → 選產品 → **單證模式** → 必填：**追蹤類型**（櫃號 CT / 訂艙 BK / 提單 BL）、**追蹤單號**、**船公司 SCAC**（例：達飛選 CMDU 以生成官網直達）→ **保存綁定**。
 4. 客戶在目錄詳情點「公開查詢」：Track-Trace 為 `?number=單號`；部分船公司官網連結亦在網址帶參考號。即時 ETA 以第三方網站為準；本頁手填 ETA／港口為快照，不會自動跟官網同步。
 
+**重要：** 綁定資料存在 Netlify **Blobs**（`shipping-bindings`），**不上 Git、也不從 `localhost` 拷貝到正式站**。上線後請務必在 **`https://你的網域/dashboard.html`**（與客戶同一個網址）再操作一次「保存綁定」；並在 Netlify 控制台設定與監控台一致的 `SHIPPING_OPS_SECRET`。
+
 ## 部署步驟
 
 > **重要**：若使用 **ZIP 手動上傳**，Netlify 可能不會部署 Functions，導致瀏覽記錄無法寫入。**請使用 deploy.bat** 部署以確保安裝 Functions。
@@ -40,6 +42,10 @@
 3. **部署後網址**
    - 產品目錄：`https://你的網址.netlify.app/`
    - 數據監控：`https://你的網址.netlify.app/dashboard.html`
+
+4. **（必做）正式站環境變數**  
+   在 Netlify：**Site configuration → Environment variables** 新增 **`SHIPPING_OPS_SECRET`**（與監控台「運營密碼」輸入一致；**勿**把密鑰寫進 `dashboard.html` 提交到 Git，否則 secrets scanner 會阻擋部署）。  
+   未設定時，物流綁定 API 會回 `server_not_configured`（500）。本機可用專案根目錄 **`.env`**，但 **`.env` 不會上傳 Git**，故正式站必須在控制台設定。
 
 ## 本機測試（Netlify Dev）
 

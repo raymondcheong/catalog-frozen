@@ -317,7 +317,9 @@ async function setLogisticsPanel(p) {
       showLogisticsLoading(false);
       if (!data.ok) {
         if (data.error === "no_binding") {
-          applyLogisticsErrorState("本產品尚未在後台綁定提單，暫無法顯示航運追蹤。請聯絡業務或待運營完成綁定後再試。");
+          applyLogisticsErrorState(
+            "此環境尚未有該產品的航運綁定資料（Netlify Blobs 依「網站」分開存放，不會從本機同步）。請用瀏覽器開「正式網址」的 /dashboard.html，在期貨航運綁定裡再按一次保存；並確認該站 Netlify 已設定 SHIPPING_OPS_SECRET。若仍無資料請聯絡業務。",
+          );
         } else {
           applyLogisticsErrorState(data.message || "無法取得航運資料，請稍後再試。");
         }
