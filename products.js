@@ -39,6 +39,10 @@ window.PRODUCTS = [
   {
     code: "CN-PK-004",
     name: "中國帶皮片骨腩（A級）",
+    images: [
+      "images/WhatsApp Image 2026-05-04 at 3.43.56 PM (1).jpeg",
+      "images/WhatsApp Image 2026-05-04 at 3.43.56 PM.jpeg",
+    ],
     category: "中國豬肉",
     specLines: ["厚度3–6CM，皮下膘1.5–2.5CM"],
     priceLines: ["$11.5/LB"],
