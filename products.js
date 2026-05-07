@@ -51,4 +51,23 @@ window.PRODUCTS = [
     available: true,
     popularity: 85,
   },
+  {
+    code: "VN-CF-001",
+    name: "越南Dai Thanh鯰魚柳",
+    images: ["images/VN-CF-001-catfish.png"],
+    category: "越南水產",
+    factory: "Plant：DL 471",
+    specLines: ["IQF/IWP Packing"],
+    priceLines: [
+      "7成：$7.2/lb",
+      "8成：$8/lb",
+      "10成：$10/lb",
+    ],
+    price: "7成 $7.2/lb；8成 $8/lb；10成 $10/lb",
+    packaging: "IQF/IWP Packing",
+    leadTime: "6月",
+    note: "截盤時間：8/5/2026",
+    available: true,
+    popularity: 88,
+  },
 ];

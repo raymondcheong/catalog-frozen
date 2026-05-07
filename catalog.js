@@ -557,10 +557,11 @@ function productCardHtml(p) {
       <img class="card-img" src="${escapeHtml(img)}" alt="${escapeHtml(p.name)}" loading="lazy" />
       <div class="card-body">
         <h3 class="card-title">${escapeHtml(p.name)}</h3>
+        <p class="card-category">${escapeHtml(p.category || "—")}</p>
         <div class="card-sub">
           <span class="code">${escapeHtml(p.code)}</span>
           <span class="card-sub-pills">
-            ${pill ? `<span class="pill ${pill.cls}">${escapeHtml(pill.text)}</span>` : `<span class="pill">${escapeHtml(p.category || "")}</span>`}
+            ${pill ? `<span class="pill ${pill.cls}">${escapeHtml(pill.text)}</span>` : ""}
             ${p.logistics ? `<span class="pill pill-logistics">在途</span>` : ""}
           </span>
         </div>
@@ -632,7 +633,7 @@ async function copyText(text) {
 
 function populateModalContent(p) {
   $("#modalName").textContent = p.name || "—";
-  $("#modalSub").textContent = (p.desc || "").slice(0, 80) || (p.category ? `${p.category}` : "—");
+  $("#modalSub").textContent = p.category || "—";
   $("#modalNameKv").textContent = p.name || "—";
   $("#modalCategory").textContent = p.category || "—";
   const specEl = $("#modalSpec");
